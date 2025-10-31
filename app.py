@@ -27,7 +27,7 @@ def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 @app.route("/", methods=["GET", "POST"])
-#se ejecuta cada vez que alguien entre ala web (GET) o suba un archivo (POST)
+#se ejecuta cada vez que alguien entre a la web (GET) o suba un archivo (POST)
 def upload_file():
     if request.method == "POST":
         # Comprobamos si el formulario tiene un archivo
@@ -41,7 +41,7 @@ def upload_file():
             flash("Nombre de archivo vacío.")
             return redirect(request.url)
 
-        #guardar el archivo en uploads si es vá;ido
+        #guardar el archivo en uploads si es válido
         if file and allowed_file(file.filename):
             filepath = os.path.join(app.config["UPLOAD_FOLDER"], file.filename)
             file.save(filepath)
