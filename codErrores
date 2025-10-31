@@ -1,0 +1,318 @@
+from flask import Flask, request, jsonify, send_from_directory
+import os
+from datetime import datetime
+
+app = Flask(__name__)
+app.secret_key = "clave_secreta"
+
+# Configuración
+UPLOAD_FOLDER = "uploads"
+PROCESSED_FOLDER = "processed"
+ALLOWED_EXTENSIONS = {"mp3", "wav", "flac", "ogg"}
+
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+app.config["PROCESSED_FOLDER"] = PROCESSED_FOLDER
+
+# Crear carpetas
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(PROCESSED_FOLDER, exist_ok=True)
+
+
+# Verificar tipo de archivo permitido
+def allowed_file(filename):
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+# Obtener información del archivo
+def get_file_info(filepath):
+    size = os.path.getsize(filepath)
+    size_kb = round(size / 1024, 2)
+
+    return {
+        'size_bytes': size,
+        'size_kb': size_kb,
+        'upload_time': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+
+
+# Ruta para descargar archivos
+@app.route('/descargar/<path:filename>')
+def descargar_archivo(filename):
+    try:
+        return send_from_directory(
+            app.config["PROCESSED_FOLDER"],
+            filename,
+            as_attachment=True
+        )
+    except FileNotFoundError:
+        return "Archivo no encontrado", 404
+
+
+# Rutas para Demucs y MusicGen (placeholders por ahora)
+@app.route('/procesar/<filename>', methods=['POST'])
+def procesar_con_demucs(filename):
+    try:
+        filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+
+        # Simular procesamiento con Demucs (esto lo implementará Francisco)
+        # Por ahora creamos archivos de ejemplo
+        pistas = ['vocals', 'drums', 'bass', 'other']
+        for pista in pistas:
+            ejemplo_pista = f"{PROCESSED_FOLDER}/{pista}_{filename}"
+            with open(ejemplo_pista, 'w') as f:
+                f.write(f"Este sería el archivo de {pista}")
+
+        return jsonify({
+            'status': 'success',
+            'message': 'Archivo procesado con Demucs',
+            'pistas': pistas,
+            'ruta_procesado': PROCESSED_FOLDER
+        })
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)})
+
+
+@app.route('/generar-musica', methods=['POST'])
+def generar_con_musicgen():
+    try:
+        datos = request.json
+        descripcion = datos.get('descripcion', 'música alegre')
+        duracion = datos.get('duracion', 30)
+
+        # Simular generación con MusicGen (esto lo implementará Francisco)
+        archivo_generado = f"musicgen_{hash(descripcion)}.wav"
+        ejemplo_audio = f"{PROCESSED_FOLDER}/{archivo_generado}"
+        with open(ejemplo_audio, 'w') as f:
+            f.write(f"Este sería el audio generado para: {descripcion}")
+
+        return jsonify({
+            'status': 'success',
+            'message': 'Música generada con MusicGen',
+            'audio_generado': archivo_generado,
+            'descripcion': descripcion
+        })
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)})
+
+
+# Ruta principal
+@app.route('/', methods=['GET', 'POST'])
+def upload_file():
+    # HTML base
+    html = '''
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Subir Audio</title>
+        <style>
+            body { 
+                font-family: Arial, sans-serif; 
+                text-align: center; 
+                padding: 50px; 
+                background: #f5f5f5;
+            }
+            .container {
+                background: white;
+                padding: 30px;
+                border-radius: 8px;
+                display: inline-block;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                width: 500px;
+            }
+            .message {
+                padding: 10px;
+                margin: 10px 0;
+                border-radius: 4px;
+            }
+            .success { 
+                background: #e8f5e8; 
+                color: #2d5016; 
+                border: 1px solid #c3e6c3;
+            }
+            .error { 
+                background: #f8d7da; 
+                color: #721c24; 
+                border: 1px solid #f5c6cb;
+            }
+            .file-info {
+                text-align: left;
+                background: #f8f9fa;
+                padding: 15px;
+                border-radius: 4px;
+                margin: 15px 0;
+                border-left: 4px solid #007bff;
+            }
+            .processing-options {
+                text-align: left;
+                margin: 20px 0;
+                padding: 15px;
+                background: #e9ecef;
+                border-radius: 4px;
+            }
+            .option {
+                margin: 15px 0;
+                padding: 10px;
+                background: white;
+                border-radius: 4px;
+            }
+            input[type="file"] {
+                margin: 15px 0;
+                padding: 8px;
+            }
+            button {
+                background: #007bff;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 14px;
+                margin: 5px;
+            }
+            button:hover {
+                background: #0056b3;
+            }
+            .boton-descarga {
+                display: inline-block;
+                background: #28a745;
+                color: white;
+                padding: 8px 15px;
+                margin: 5px;
+                border-radius: 4px;
+                text-decoration: none;
+            }
+            .boton-descarga:hover {
+                background: #218838;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+        <h1>Subir Archivo de Audio</h1>
+    '''
+
+    # Procesar archivo subido
+    if request.method == 'POST':
+        if 'audio_file' not in request.files:
+            html += '<div class="message error">No se selecciono ningun archivo.</div>'
+        else:
+            file = request.files['audio_file']
+
+            if file.filename == '':
+                html += '<div class="message error">Nombre de archivo vacio.</div>'
+            elif not allowed_file(file.filename):
+                html += '<div class="message error">Tipo de archivo no permitido. Use: mp3, wav, flac, ogg</div>'
+            else:
+                # Guardar archivo
+                filepath = os.path.join(app.config["UPLOAD_FOLDER"], file.filename)
+                file.save(filepath)
+
+                # Obtener información
+                info = get_file_info(filepath)
+
+                html += f'''
+                <div class="message success">Archivo subido correctamente</div>
+                <div class="file-info">
+                    <h3>Informacion del archivo:</h3>
+                    <p><strong>Nombre:</strong> {file.filename}</p>
+                    <p><strong>Tamaño:</strong> {info['size_kb']} KB</p>
+                    <p><strong>Formato:</strong> {file.filename.rsplit('.', 1)[1].upper()}</p>
+                    <p><strong>Hora de subida:</strong> {info['upload_time']}</p>
+
+                    <div class="descargas">
+                        <h4>Descargar:</h4>
+                        <a href="/descargar/{file.filename}" class="boton-descarga">Archivo Original</a>
+                    </div>
+                </div>
+
+                <div class="processing-options">
+                    <h3>Opciones de Procesamiento</h3>
+
+                    <div class="option">
+                        <h4>Separar Pistas (Demucs)</h4>
+                        <button onclick="procesarConDemucs('{file.filename}')">
+                            Separar en pistas individuales
+                        </button>
+                        <div id="demucs-result"></div>
+                    </div>
+
+                    <div class="option">
+                        <h4>Generar Nueva Musica (MusicGen)</h4>
+                        <input type="text" id="descripcion-musica" placeholder="Ej: rock alegre con guitarra electrica">
+                        <input type="number" id="duracion-musica" value="30" min="10" max="120">
+                        <button onclick="generarConMusicGen()">
+                            Generar Musica
+                        </button>
+                        <div id="musicgen-result"></div>
+                    </div>
+                </div>
+                '''
+
+    # Formulario
+    html += '''
+        <form method="POST" enctype="multipart/form-data">
+            <input type="file" name="audio_file" accept=".mp3,.wav,.flac,.ogg" required>
+            <br>
+            <button type="submit">Subir Archivo</button>
+        </form>
+        </div>
+
+        <script>
+        function procesarConDemucs(filename) {
+            fetch('/procesar/' + filename, { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    const resultDiv = document.getElementById('demucs-result');
+                    if (data.status === 'success') {
+                        let descargasHTML = '<p>Pistas generadas:</p>';
+                        data.pistas.forEach(pista => {
+                            descargasHTML += `<a href="/descargar/${pista}_${filename}" class="boton-descarga">${pista}</a>`;
+                        });
+
+                        resultDiv.innerHTML = `
+                            <div class="message success">
+                                <p>¡Pistas separadas exitosamente!</p>
+                                ${descargasHTML}
+                            </div>
+                        `;
+                    } else {
+                        resultDiv.innerHTML = `<div class="message error">Error: ${data.message}</div>`;
+                    }
+                });
+        }
+
+        function generarConMusicGen() {
+            const descripcion = document.getElementById('descripcion-musica').value;
+            const duracion = document.getElementById('duracion-musica').value;
+
+            fetch('/generar-musica', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ descripcion, duracion })
+            })
+            .then(response => response.json())
+            .then(data => {
+                const resultDiv = document.getElementById('musicgen-result');
+                if (data.status === 'success') {
+                    resultDiv.innerHTML = `
+                        <div class="message success">
+                            <p>¡Música generada exitosamente!</p>
+                            <p>Descripción: ${data.descripcion}</p>
+                            <a href="/descargar/${data.audio_generado}" class="boton-descarga">Descargar Música</a>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<div class="message error">Error: ${data.message}</div>`;
+                }
+            });
+        }
+        </script>
+    </body>
+    </html>
+    '''
+
+    return html
+
+
+if __name__ == '__main__':
+    app.run(debug=True)
