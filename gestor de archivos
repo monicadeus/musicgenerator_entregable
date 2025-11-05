@@ -1,0 +1,12 @@
+class GestorArchivos:
+    @staticmethod
+    def leer_json(ruta_archivo):
+        pass
+    
+    @staticmethod
+    def escribir_json(datos, ruta_archivo):
+        pass
+    
+    @staticmethod
+    def cargar_cancion_desde_json(ruta_json):
+        pass
