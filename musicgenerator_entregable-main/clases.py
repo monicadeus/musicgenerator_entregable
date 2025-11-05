@@ -3,7 +3,7 @@
 # Objetivo: separar la lógica de datos (modelo) del servidor (app.py)
 
 import os
-from procesamiento_audio.py import separate_stems, generate_accompaniment, mix_tracks
+from procesamiento_audio import separate_stems, generate_accompaniment, mix_tracks
 from datetime import datetime
 from typing import List, Optional
 
@@ -79,9 +79,16 @@ class ProyectoAudio:
         self.outputs_dir = "outputs_remix"  # carpeta por defecto para resultados
         os.makedirs(self.outputs_dir, exist_ok=True)
 
-    def agregar_cancion(self, cancion: Cancion):
-        """Añade una Cancion al proyecto."""
+    def agregar_cancion(self, cancion):
+        """
+        Añade una Cancion al proyecto.
+        Valida que el objeto sea del tipo correcto antes de agregarlo.
+        """
+        if not isinstance(cancion, Cancion):
+            raise TypeError(f"Se esperaba un objeto Cancion, pero se recibió {type(cancion).__name__}")
+
         self.canciones.append(cancion)
+        return cancion
 
     def encontrar_cancion_por_archivo(self, filename: str) -> Optional[Cancion]:
         """Busca una canción por nombre de archivo (basename)."""

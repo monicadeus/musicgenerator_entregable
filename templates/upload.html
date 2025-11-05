@@ -50,8 +50,9 @@
       {% endif %}
     {% endwith %}
 
-    <form method="POST" enctype="multipart/form-data">
-      <input type="file" name="music_file" accept=".mp3,.wav,.flac,.ogg" required>
+    <!-- Enviar al endpoint /upload con método POST -->
+    <form action="/upload" method="POST" enctype="multipart/form-data">
+      <input type="file" name="file" accept=".mp3,.wav,.flac,.ogg" required>
       <br><br>
       <button type="submit">Subir</button>
     </form>

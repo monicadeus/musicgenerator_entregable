@@ -1,8 +1,15 @@
 import os
 import asyncio
 from flask import Flask, request, jsonify, render_template, send_from_directory
-from clases import ProyectoAudio
-from procesamiento_audio import separar_stems, mezclar_pistas
+from clases import ProyectoAudio, Cancion
+
+import clases
+print("🔍 Cargando clases desde:", clases.__file__)
+print("Tiene método agregar_cancion?:", hasattr(clases.ProyectoAudio, "agregar_cancion"))
+
+from procesamiento_audio import separate_stems, mix_tracks
+
+print("Tiene método agregar_cancion?:", hasattr(ProyectoAudio, "agregar_cancion"))
 
 # -------------------------------------------------------
 # Configuración general del servidor Flask
@@ -10,7 +17,7 @@ from procesamiento_audio import separar_stems, mezclar_pistas
 app = Flask(__name__)
 
 UPLOAD_FOLDER = "uploads"
-OUTPUT_FOLDER = "output_remix"
+OUTPUT_FOLDER = "outputs_remix"
 
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["OUTPUT_FOLDER"] = OUTPUT_FOLDER
@@ -19,7 +26,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 # Proyecto principal de audio
-proyecto = ProyectoAudio("Proyecto General", "")
+proyecto = ProyectoAudio("Proyecto de Audio")
 
 # -------------------------------------------------------
 # Funciones auxiliares
@@ -39,12 +46,17 @@ async def ejecutar_async(funcion, *args, **kwargs):
 @app.route("/")
 def index():
     """Página principal (interfaz del usuario)."""
-    return render_template("index.html")
+    return render_template("upload.html")
 
-@app.route("/upload", methods=["POST"])
+
+
+@app.route("/upload", methods=["GET", "POST"])
 def upload_file():
-    """Sube un archivo musical y lo registra en el proyecto."""
-    try:
+     """Sube un archivo musical y lo registra en el proyecto."""
+     try:
+        if request.method == "GET":
+            return render_template("upload.html")
+
         if "file" not in request.files:
             return jsonify({"error": "No se envió ningún archivo"}), 400
 
@@ -54,11 +66,13 @@ def upload_file():
 
         filepath = os.path.join(app.config["UPLOAD_FOLDER"], file.filename)
         file.save(filepath)
+        # Crear objeto Cancion
+        nueva_cancion = Cancion(file.filename, filepath, "audio")
 
-        proyecto.agregar_cancion(file.filename, "audio", filepath)
-
+        # Añadir al proyecto
+        proyecto.agregar_cancion(nueva_cancion)
         return jsonify({"mensaje": "Archivo subido correctamente", "ruta": filepath})
-    except Exception as e:
+     except Exception as e:
         return jsonify({"error": f"Error al subir archivo: {str(e)}"}), 500
 
 @app.route("/separar", methods=["POST"])
@@ -77,7 +91,7 @@ async def separar():
 
     try:
         # Procesamiento asíncrono
-        stems = await ejecutar_async(separar_stems, ruta_archivo, app.config["OUTPUT_FOLDER"])
+        stems = await ejecutar_async(separate_stems, ruta_archivo, app.config["OUTPUT_FOLDER"])
         proyecto.agregar_pistas(stems)
         return jsonify({"mensaje": "Separación completada", "pistas": stems})
     except FileNotFoundError:
@@ -101,7 +115,7 @@ async def mezclar():
     ruta_salida = os.path.join(app.config["OUTPUT_FOLDER"], "mezcla_final.wav")
 
     try:
-        await ejecutar_async(mezclar_pistas, rutas_pistas, ruta_salida)
+        await ejecutar_async(mix_tracks, rutas_pistas, ruta_salida)
         return jsonify({"mensaje": "Mezcla completada", "archivo_resultante": ruta_salida})
     except Exception as e:
         return jsonify({"error": f"Error durante la mezcla: {str(e)}"}), 500
