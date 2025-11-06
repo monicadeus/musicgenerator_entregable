@@ -1,4 +1,3 @@
-# clases.py
 # Contiene los modelos: Cancion, Pista y ProyectoAudio
 # Objetivo: separar la lógica de datos (modelo) del servidor (app.py)
 
