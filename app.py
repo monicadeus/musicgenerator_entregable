@@ -92,7 +92,7 @@ async def separar():
     try:
         # Procesamiento asíncrono
         stems = await ejecutar_async(separate_stems, ruta_archivo, app.config["OUTPUT_FOLDER"])
-        proyecto.agregar_pistas(stems)
+        proyecto.agregar_pista(stems)
         return jsonify({"mensaje": "Separación completada", "pistas": stems})
     except FileNotFoundError:
         return jsonify({"error": "Archivo no encontrado"}), 404
