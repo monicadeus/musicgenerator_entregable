@@ -2,11 +2,6 @@ import os
 import asyncio
 from flask import Flask, request, jsonify, render_template, send_from_directory
 from clases import ProyectoAudio, Cancion
-
-import clases
-print("🔍 Cargando clases desde:", clases.__file__)
-print("Tiene método agregar_cancion?:", hasattr(clases.ProyectoAudio, "agregar_cancion"))
-
 from procesamiento_audio import separate_stems, mix_tracks
 
 print("Tiene método agregar_cancion?:", hasattr(ProyectoAudio, "agregar_cancion"))
