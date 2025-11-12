@@ -1,3 +1,4 @@
+# clases.py
 # Contiene los modelos: Cancion, Pista y ProyectoAudio
 # Objetivo: separar la lógica de datos (modelo) del servidor (app.py)
 
@@ -5,6 +6,7 @@ import os
 from procesamiento_audio import separate_stems, generate_accompaniment, mix_tracks
 from datetime import datetime
 from typing import List, Optional
+from gestor_archivos import GestorArchivos
 
 class Pista:
     """
@@ -51,6 +53,9 @@ class Cancion:
         """Añade una pista a la canción (por ejemplo tras separar stems)."""
         self.pistas.append(pista)
 
+    def reproducir(self):
+        raise NotImplementedError("Este método debe ser implementado por las subclases")
+
     def info_simple(self) -> dict:
         """Devuelve información resumen de la canción (útil para la UI)."""
         return {
@@ -65,6 +70,14 @@ class Cancion:
     def __repr__(self):
         return f"Cancion(titulo={self.titulo}, archivo={os.path.basename(self.archivo_ruta)})"
 
+#Clases que heredan Cancion, diferenciando la reproducción por formato
+class CancionMP3(Cancion):
+    def reproducir(self):
+        print(f"Reproduciendo {self.titulo} en formato MP3 desde {self.archivo_ruta}")
+
+class CancionWAV(Cancion):
+    def reproducir(self):
+        print(f"Reproduciendo {self.titulo} en formato WAV desde {self.archivo_ruta}")
 
 class ProyectoAudio:
     """
@@ -111,3 +124,29 @@ class ProyectoAudio:
     def mezclar(self, vocal_wav, accomp_wav):
         out_path = os.path.join(self.output_dir, "final_mix.wav")
         return mix_tracks(vocal_wav, accomp_wav, out_path)
+
+    def guardar_estado(self):
+        """Guarda la información básica del proyecto en JSON (opcional)."""
+        gestor = GestorArchivos("estado_proyecto.json")
+        data = [c.info_simple() for c in self.canciones]
+        gestor.guardar_json(data)
+
+    def cargar_estado(self):
+        """Carga canciones previamente guardadas (si existe el JSON)."""
+        gestor = GestorArchivos("estado_proyecto.json")
+        data = gestor.leer_json()
+        if not data:
+            raise "No se han encontrado canciones registradas"
+        for c in data:
+            print(f"Canción registrada en JSON: {c['titulo']}")
+
+
+'''
+lista_canciones = [
+    CancionMP3("Jazz Night", "mp3", "archivos/jazz.mp3"),
+    CancionWAV("Rock Live", "wav", "archivos/rock.wav"),
+]
+
+for c in lista_canciones:
+    c.reproducir()
+'''
