@@ -5,6 +5,7 @@ import numpy as np
 import torch
 import librosa
 import soundfile as sf
+from abc import ABC, abstractmethod
 
 from demucs.pretrained import get_model
 from demucs.apply import apply_model
@@ -19,7 +20,6 @@ ACC_GAIN = 0.65
 MODEL_DEMUCS = "htdemucs"
 MODEL_MUSICGEN = "facebook/musicgen-small"
 
-# detect device
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 torch.set_default_device(DEVICE)
 
@@ -50,77 +50,88 @@ def save_audio(path, audio, sr=SAMPLE_RATE):
     sf.write(path, audio, sr)
 
 # =========================
-# 1️⃣ STEM SEPARATION
+# CLASE BASE
 # =========================
-_DEMUCS_MODEL = None
-def separate_stems(input_audio, out_dir):
-    """Separate stems using Demucs (CPU/GPU)"""
-    global _DEMUCS_MODEL
-    ensure_dir(out_dir)
+class AudioProcessor(ABC):
+    """Clase abstracta para procesadores de audio"""
 
-    if _DEMUCS_MODEL is None:
-        log("🔊 Loading Demucs model...")
-        _DEMUCS_MODEL = get_model(MODEL_DEMUCS).to(DEVICE).eval()
-
-    wav, _ = load_audio(input_audio, sr=SAMPLE_RATE, mono=False)
-    wav_t = torch.tensor(wav, dtype=torch.float32).unsqueeze(0).to(DEVICE)
-
-    with torch.no_grad():
-        sources = apply_model(_DEMUCS_MODEL, wav_t, device=DEVICE,
-                              split=True, overlap=0.25, shifts=1)[0]
-
-    stems = _DEMUCS_MODEL.sources  # ['vocals','drums','bass','other']
-    paths = {}
-    for i, name in enumerate(stems):
-        out_path = Path(out_dir) / f"{name}.wav"
-        save_audio(out_path, sources[i].cpu().numpy(), SAMPLE_RATE)
-        log(f"{name} stem saved → {out_path}")
-        paths[name] = str(out_path)
-
-    return paths
+    @abstractmethod
+    def process(self, *args, **kwargs):
+        pass
 
 # =========================
-# 2️⃣ AI ACCOMPANIMENT
+# SUBCLASE 1️⃣ SEPARACIÓN DE STEMS
 # =========================
-_MUSICGEN_MODEL = None
-_MUSICGEN_PROC = None
-def generate_accompaniment(style_prompt, out_path, duration=30):
-    """Generate accompaniment using MusicGen"""
-    global _MUSICGEN_MODEL, _MUSICGEN_PROC
+class DemucsSeparator(AudioProcessor):
+    _model = None
 
-    if _MUSICGEN_MODEL is None:
-        log("Loading MusicGen model...")
-        _MUSICGEN_PROC = AutoProcessor.from_pretrained(MODEL_MUSICGEN)
-        _MUSICGEN_MODEL = MusicgenForConditionalGeneration.from_pretrained(MODEL_MUSICGEN).to(DEVICE)
+    def process(self, input_audio, out_dir):
+        ensure_dir(out_dir)
+        if self._model is None:
+            log("🔊 Loading Demucs model...")
+            self._model = get_model(MODEL_DEMUCS).to(DEVICE).eval()
 
-    prompt = f"background music in {style_prompt} style"
-    log(f"🎶 Generating accompaniment: {prompt}")
-    inputs = _MUSICGEN_PROC(text=prompt, return_tensors="pt", padding=True).to(DEVICE)
+        wav, _ = load_audio(input_audio, sr=SAMPLE_RATE, mono=False)
+        wav_t = torch.tensor(wav, dtype=torch.float32).unsqueeze(0).to(DEVICE)
 
-    with torch.no_grad():
-        audio = _MUSICGEN_MODEL.generate(**inputs, max_new_tokens=int(duration * SAMPLE_RATE / 256))
+        with torch.no_grad():
+            sources = apply_model(self._model, wav_t, device=DEVICE,
+                                  split=True, overlap=0.25, shifts=1)[0]
 
-    arr = audio[0, 0].cpu().numpy()
-    arr = arr / (np.max(np.abs(arr)) + 1e-9)
-    save_audio(out_path, arr, SAMPLE_RATE)
-    log(f"Accompaniment saved → {out_path}")
-    return out_path
+        stems = self._model.sources
+        paths = {}
+        for i, name in enumerate(stems):
+            out_path = Path(out_dir) / f"{name}.wav"
+            save_audio(out_path, sources[i].cpu().numpy(), SAMPLE_RATE)
+            log(f"{name} stem saved → {out_path}")
+            paths[name] = str(out_path)
+
+        return paths
+
 
 # =========================
-# 3️⃣ MIXING
+# SUBCLASE 2️⃣ GENERACIÓN DE ACOMPAÑAMIENTO
 # =========================
-def mix_tracks(vocal_wav, accomp_wav, out_path):
-    """Combine vocal + AI accompaniment"""
-    log("🎧 Mixing vocal + accompaniment...")
-    v, _ = librosa.load(vocal_wav, sr=SAMPLE_RATE, mono=True)
-    a, _ = librosa.load(accomp_wav, sr=SAMPLE_RATE, mono=True)
+class MusicGenGenerator(AudioProcessor):
+    _model = None
+    _processor = None
 
-    L = min(len(v), len(a))
-    mix = VOCAL_GAIN * v[:L] + ACC_GAIN * a[:L]
-    mix = mix / (np.max(np.abs(mix)) + 1e-9)
-    save_audio(out_path, mix, SAMPLE_RATE)
-    log(f"Final remix saved → {out_path}")
-    return out_path
+    def process(self, style_prompt, out_path, duration=30):
+        if self._model is None:
+            log("Loading MusicGen model...")
+            self._processor = AutoProcessor.from_pretrained(MODEL_MUSICGEN)
+            self._model = MusicgenForConditionalGeneration.from_pretrained(MODEL_MUSICGEN).to(DEVICE)
+
+        prompt = f"background music in {style_prompt} style"
+        log(f"🎶 Generating accompaniment: {prompt}")
+        inputs = self._processor(text=prompt, return_tensors="pt", padding=True).to(DEVICE)
+
+        with torch.no_grad():
+            audio = self._model.generate(**inputs, max_new_tokens=int(duration * SAMPLE_RATE / 256))
+
+        arr = audio[0, 0].cpu().numpy()
+        arr = arr / (np.max(np.abs(arr)) + 1e-9)
+        save_audio(out_path, arr, SAMPLE_RATE)
+        log(f"Accompaniment saved → {out_path}")
+        return out_path
+
+
+# =========================
+# SUBCLASE 3️⃣ MEZCLA
+# =========================
+class Mixer(AudioProcessor):
+    def process(self, vocal_wav, accomp_wav, out_path):
+        log("🎧 Mixing vocal + accompaniment...")
+        v, _ = librosa.load(vocal_wav, sr=SAMPLE_RATE, mono=True)
+        a, _ = librosa.load(accomp_wav, sr=SAMPLE_RATE, mono=True)
+
+        L = min(len(v), len(a))
+        mix = VOCAL_GAIN * v[:L] + ACC_GAIN * a[:L]
+        mix = mix / (np.max(np.abs(mix)) + 1e-9)
+        save_audio(out_path, mix, SAMPLE_RATE)
+        log(f"Final remix saved → {out_path}")
+        return out_path
+
 
 # =========================
 # 4️⃣ MAIN PIPELINE
@@ -137,17 +148,51 @@ def main():
     log(f"🎚 Device: {DEVICE}")
 
     ensure_dir(args.output_dir)
-    stems = separate_stems(args.input, args.output_dir)
+
+    # instanciamos las clases
+    separator = DemucsSeparator()
+    generator = MusicGenGenerator()
+    mixer = Mixer()
+
+    # pipeline
+    stems = separator.process(args.input, args.output_dir)
     vocal_path = stems.get("vocals")
     accomp_path = os.path.join(args.output_dir, "accompaniment_generated.wav")
     final_mix = os.path.join(args.output_dir, "final_remix.wav")
 
-    generate_accompaniment(args.style, accomp_path, duration=args.duration)
-    mix_tracks(vocal_path, accomp_path, final_mix)
+    generator.process(args.style, accomp_path, duration=args.duration)
+    mixer.process(vocal_path, accomp_path, final_mix)
 
-    log(f"Done! Remix ready → {final_mix}")
+    log(f"✅ Done! Remix ready → {final_mix}")
+
+# ==========================================
+# 🔁 FUNCIONES ALIAS (para compatibilidad)
+# ==========================================
+
+def separate_stems(input_audio, out_dir):
+    """
+    Compatibilidad: mantiene la función original.
+    Internamente usa la clase DemucsSeparator.
+    """
+    return DemucsSeparator().process(input_audio, out_dir)
+
+
+def generate_accompaniment(style_prompt, out_path, duration=30):
+    """
+    Compatibilidad: mantiene la función original.
+    Internamente usa la clase MusicGenGenerator.
+    """
+    return MusicGenGenerator().process(style_prompt, out_path, duration=duration)
+
+
+def mix_tracks(vocal_wav, accomp_wav, out_path):
+    """
+    Compatibilidad: mantiene la función original.
+    Internamente usa la clase Mixer.
+    """
+    return Mixer().process(vocal_wav, accomp_wav, out_path)
 
 if __name__ == "__main__":
     if os.name == "nt":
-        os.system("chcp 65001 >NUL")  # Windows UTF-8 fix
+        os.system("chcp 65001 >NUL")
     main()
