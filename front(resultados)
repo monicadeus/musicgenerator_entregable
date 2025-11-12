@@ -1,108 +1,44 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Cancion Generada - Music Generator</title>
-    <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            margin: 0;
-            padding: 40px;
-            background-color: #f5f5f5;
-        }
-        .container { 
-            max-width: 800px; 
-            margin: 0 auto; 
-            background: white;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        .success-message { 
-            color: #28a745; 
-            font-size: 24px;
-            margin-bottom: 20px;
-        }
-        .audio-player { 
-            margin: 25px 0; 
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 5px;
-        }
-        .btn { 
-            display: inline-block;
-            padding: 12px 24px; 
-            margin: 10px 5px;
-            text-decoration: none; 
-            border-radius: 5px;
-            border: none;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        .btn-primary { 
-            background: #007bff; 
-            color: white; 
-        }
-        .btn-secondary { 
-            background: #6c757d; 
-            color: white; 
-        }
-        .song-info {
-            margin: 20px 0;
-            padding: 15px;
-            border-left: 4px solid #007bff;
-            background: #f8f9fa;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1 class="success-message">Cancion Generada Exitosamente</h1>
+from flask import Flask, render_template, request, redirect, url_for
+import os
+from datetime import datetime
+from werkzeug.utils import secure_filename
+
+app = Flask(__name__)
+app.config['UPLOAD_FOLDER'] = 'static/uploads/'
+app.config['ALLOWED_EXTENSIONS'] = {'mid', 'midi'}
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
+
+@app.route('/upload', methods=['POST'])
+def upload_song():
+    if 'song' not in request.files:
+        return redirect(request.url)
+    
+    file = request.files['song']
+    if file.filename == '':
+        return redirect(request.url)
+    
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(filepath)
         
-        <div class="song-info">
-            <h2>Informacion de la Cancion</h2>
-            <p><strong>Nombre:</strong> <span id="song-name">cancion_generada.mid</span></p>
-            <p><strong>Duracion:</strong> <span id="song-duration">2:30</span></p>
-            <p><strong>Fecha de creacion:</strong> <span id="creation-date">2024-01-15</span></p>
-        </div>
+        # integrar modelo de generacion musical
+        generated_song = generate_new_song(filepath)
+        
+        return render_template('results.html',
+                             original_file=filename,
+                             generated_file=generated_song,
+                             timestamp=datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 
-        <div class="audio-player">
-            <h3>Reproducir Cancion:</h3>
-            <audio controls style="width: 100%;">
-                <source src="generated_song.mid" type="audio/midi">
-                Tu navegador no soporta el elemento de audio.
-            </audio>
-        </div>
+def generate_new_song(input_path):
+    # Integracion con tu modelo LSTM existente
+    # Usa tus archivos .h5 y .keras
+    return "nueva_cancion_generada.mid"
 
-        <div class="actions">
-            <a href="generated_song.mid" class="btn btn-primary" download>Descargar Archivo MIDI</a>
-            <button onclick="generateAnother()" class="btn btn-secondary">Generar Otra Cancion</button>
-            <button onclick="shareSong()" class="btn btn-secondary">Compartir Cancion</button>
-        </div>
-    </div>
-
-    <script>
-        function generateAnother() {
-            window.location.href = 'index.html';
-        }
-
-        function shareSong() {
-            if (navigator.share) {
-                navigator.share({
-                    title: 'Mi cancion generada',
-                    text: 'Mira esta cancion que genere con AI',
-                    url: window.location.href
-                });
-            } else {
-                alert('Copia este enlace para compartir: ' + window.location.href);
-            }
-        }
-
-        // Cargar informacion de la cancion
-        document.addEventListener('DOMContentLoaded', function() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const songName = urlParams.get('song') || 'cancion_generada.mid';
-            document.getElementById('song-name').textContent = songName;
-        });
-    </script>
-</body>
-</html>
+if __name__ == '__main__':
+    if not os.path.exists(app.config['UPLOAD_FOLDER']):
+        os.makedirs(app.config['UPLOAD_FOLDER'])
+    app.run(debug=True)
