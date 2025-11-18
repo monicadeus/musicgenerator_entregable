@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Proyecto de audio</title>
+    <style>
+        body { font-family: Arial; margin: 40px; }
+        .section { margin-bottom: 30px; }
+        button { padding: 10px; margin: 5px; }
+    </style>
+</head>
+<body>
+
+<h2>Proyecto de Audio</h2>
+
+<div class="section">
+    <h3>Canción seleccionada</h3>
+
+    <p><strong>{{ cancion.titulo }}</strong></p>
+
+    <audio controls src="/uploads/{{ cancion.titulo }}"></audio>
+</div>
+
+<div class="section">
+    <h3>Acciones disponibles</h3>
+    <button onclick="separar()">Separar stems</button>
+    <button onclick="mezclar()" id="mezclarBtn" disabled>Mezclar stems</button>
+</div>
+
+<div class="section">
+    <h3>Pistas generadas</h3>
+    <ul id="listaPistas"></ul>
+</div>
+
+<script>
+    const nombreArchivo = "{{ archivo }}";
+
+    async function separar() {
+
+        const res = await fetch("/separar", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ nombre: nombreArchivo })
+        });
+
+        const data = await res.json();
+
+        if (data.pistas) {
+            const lista = document.getElementById("listaPistas");
+            lista.innerHTML = "";
+
+            for (const [nombrePista, rutaLocal] of Object.entries(data.pistas)) {
+
+                // Ahora rutaLocal TIENE QUE SER algo como "vocals.wav"
+                const rutaPublica = rutaLocal.startsWith("/") ? rutaLocal : "/" + rutaLocal;
+                console.log("Ruta local recibida:", rutaLocal);
+                console.log("Ruta pública generada:", rutaPublica);
+
+                const li = document.createElement("li");
+                li.innerHTML = `
+                    ${nombrePista}
+                    <audio controls data-file="${rutaLocal}" src="${rutaPublica}"></audio>
+                `;
+                lista.appendChild(li);
+            }
+
+            document.getElementById("mezclarBtn").disabled = false;
+        }
+    }
+
+    async function mezclar() {
+
+        // OJO: obtener SOLO el nombre real del archivo, no la URL completa
+        const stems = Array.from(document.querySelectorAll("#listaPistas li audio"))
+            .map(a => a.dataset.file);  // ← ← ESTO ES LA CLAVE
+
+        const res = await fetch("/mezclar", {
+            method: "POST",
+            headers: { "Content-Type": "application/json"},
+            body: JSON.stringify({ pistas: stems })
+        });
+
+        const data = await res.json();
+
+        if (data.archivo_resultante) {
+            alert("Mezcla generada: " + data.archivo_resultante);
+        }
+    }
+</script>
+
+</body>
+</html>
