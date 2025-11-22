@@ -20,24 +20,7 @@ La aplicación consta de los siguientes componentes:
 4. Procesamiento de audio: Funciones separate_stems y mix_tracks que ejecutan la lógica de análisis y composición de audio.
 5. Almacenamiento temporal: Carpeta “uploads/” para archivos recibidos y “output/” (u otro nombre) para archivos generados.
 
-4. Estructura del repositorio
-musicgenerator_entregable/
-│
-├── src/
-│   ├── main.py              ← Punto de entrada de la aplicación
-│   ├── clases.py            ← Modelos de dominio: ProyectoAudio, Cancion, Pista
-│   ├── procesamiento_audio.py← Funciones de procesamiento: separate_stems, mix_tracks
-│   └── templates/
-│       └── index.html       ← Formulario web
-│
-├── uploads/                 ← Carpeta para cargas del usuario
-├── output/                  ← Carpeta para resultados procesados
-│
-├── requirements.txt         ← Dependencias Python
-├── README.md                ← Este archivo
-└── .gitignore
-
-5. Instalación & configuración
+4. Instalación & configuración
 Requisitos previos
 - Python 3.10 o superior
 - pip
@@ -51,14 +34,14 @@ cd musicgenerator_entregable
 pip install -r requirements.txt
 
 Configuración
-- Modificar, si es necesario, rutas de subida/resultados en main.py.
+- Modificar, si es necesario, rutas de subida/resultados en app.py.
 - Verificar los permisos de lectura/escritura en las carpetas uploads/ y output/.
 - Si se usa GPU o librerías especiales, configurar el entorno apropiado.
 
-6. Uso de la aplicación
+5. Uso de la aplicación
 Ejecución
 python src/main.py
-La aplicación se ejecutará en http://127.0.0.1:5000 por defecto.
+La aplicación se ejecutará en http://127.0.0.1:3838.
 
 Flujo de uso
 1. Acceder al formulario web.
@@ -67,7 +50,7 @@ Flujo de uso
 4. Hacer clic en “Procesar”.
 5. Una vez completado, descargar el archivo resultante desde el enlace provisto.
 
-7. Explicación técnica
+6. Explicación técnica
 Gestión de archivos
 Se utiliza Flask para recibir archivos vía request.files y gestionar su almacenamiento temporal con werkzeug.utils.secure_filename a fin de evitar problemas de seguridad.
 Separación de stems y mezcla
@@ -77,18 +60,18 @@ Modelos de dominio
 - Cancion: representa un archivo de audio original o transformado.
 - Pista: representa una subdivisión de la canción (por ejemplo, voz, instrumentos) que puede ser procesada individualmente.
 
-8. Resultados esperados y conclusiones
+7. Resultados esperados y conclusiones
 El sistema permite a usuarios con conocimientos básicos acceder a procesamiento de audio avanzado sin necesidad de programar. Algunas conclusiones preliminares:
 - La separación de stems mejora significativamente la flexibilidad de mezcla.
 - La modularidad del diseño facilita extensiones futuras (por ejemplo: efectos, mastering automático).
 - Limitaciones actuales incluyen requerimientos de hardware para procesamiento pesado y formatos de audio limitados.
 
-9. Futuras extensiones
+8. Futuras extensiones
 - Integrar generación automática de melodías/chords (por ejemplo, utilizando IA).
 - Añadir interfaz gráfica más elaborada con vistas de mezcla/interfaz de usuario en tiempo real.
 - Incorporar plugins VST o exportación directa para estaciones de trabajo de audio.
 - Automatizar publicación de resultados en plataformas como Splice o MercadoLibre (en tu caso, considerando integración con tu ecosistema).
 
-10. Bibliografía
+9. Bibliografía
 - Y.-Y. Yang, M. Hira, Z. Ni et al., “TorchAudio: Building Blocks for Audio and Speech Processing”, arXiv preprint, 2021.
 - A. Torfi, “SpeechPy – A Library for Speech Processing and Recognition”, arXiv preprint, 2018.
